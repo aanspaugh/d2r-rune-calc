@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>D2R Rune Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500&family=Crimson+Text:wght@400;600&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Crimson Text', Georgia, serif; color: #c8a951; background: #0d0b08; min-height: 100vh; }
+.app { max-width: 900px; margin: 0 auto; padding: 0 0 2rem; }
+.header { text-align: center; padding: 1.5rem 1rem 1rem; border-bottom: 1px solid #3a2e1a; margin-bottom: 1rem; }
+.header h1 { font-family: 'Cinzel', Georgia, serif; font-size: 22px; font-weight: 500; letter-spacing: 0.08em; color: #c8a951; margin-bottom: 4px; }
+.header p { font-size: 13px; color: #7a6a4a; }
+.controls { display: flex; gap: 12px; padding: 0 1rem 1rem; align-items: center; flex-wrap: wrap; }
+.controls label { font-size: 13px; color: #7a6a4a; white-space: nowrap; }
+.goal-select { background: #161410; color: #c8a951; border: 1px solid #3a2e1a; border-radius: 4px; padding: 6px 10px; font-family: 'Cinzel', Georgia, serif; font-size: 13px; cursor: pointer; min-width: 140px; max-width: 220px; }
+.goal-select:focus { outline: none; border-color: #8a6f2e; }
+.progress-bar-wrap { flex: 1; min-width: 160px; }
+.progress-label { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px; color: #7a6a4a; }
+.progress-label span:last-child { color: #c8a951; font-weight: 500; }
+.progress-track { height: 8px; background: #161410; border: 1px solid #3a2e1a; border-radius: 2px; overflow: hidden; }
+.progress-fill { height: 100%; background: #8a6f2e; transition: width 0.3s ease; }
+.table-wrap { padding: 0 1rem; overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+thead tr { border-bottom: 1px solid #3a2e1a; }
+thead th { text-align: left; padding: 6px 8px; font-family: 'Cinzel', Georgia, serif; font-size: 11px; letter-spacing: 0.06em; color: #7a6a4a; font-weight: 500; }
+thead th:nth-child(2), thead th:nth-child(3), thead th:nth-child(4) { text-align: center; }
+thead th:nth-child(5) { text-align: left; }
+tbody tr { border-bottom: 1px solid #1e1a10; transition: background 0.1s; }
+td { padding: 4px 8px; vertical-align: middle; }
+.rune-name { font-family: 'Cinzel', Georgia, serif; font-size: 14px; }
+.band-0 { background: #130f07; }
+.band-0:hover { background: #1c1608; }
+.band-1 { background: #0b100e; }
+.band-1:hover { background: #111a16; }
+.band-2 { background: #100b12; }
+.band-2:hover { background: #1a1220; }
+.band-3 { background: #110808; }
+.band-3:hover { background: #1e0e0e; }
+.name-band-0 { color: #c8c8a0; }
+.name-band-1 { color: #e8a020; }
+.name-band-2 { color: #cc78e0; }
+.name-band-3 { color: #ff6b35; }
+.owned-wrap { display: flex; align-items: center; justify-content: center; gap: 4px; }
+.owned-input { width: 52px; background: #0d0b08; color: #c8a951; border: 1px solid #3a2e1a; border-radius: 3px; padding: 3px 4px; font-size: 14px; text-align: center; }
+.owned-input:focus { outline: none; border-color: #c8a951; }
+.clear-btn { background: none; border: 1px solid #3a2e1a; color: #5a4a2a; border-radius: 3px; cursor: pointer; font-size: 11px; padding: 2px 5px; line-height: 1; transition: color 0.15s, border-color 0.15s; font-family: Georgia, serif; }
+.clear-btn:hover { color: #c8a951; border-color: #8a6f2e; }
+.pct-cell { text-align: center; font-size: 12px; color: #7a6a4a; font-variant-numeric: tabular-nums; }
+.needed-cell { text-align: center; font-size: 13px; font-variant-numeric: tabular-nums; }
+.needed-pos { color: #e07040; }
+.checkmark { color: #6aaa6a; font-size: 15px; }
+.formula-cell { font-size: 12px; color: #7a6a4a; white-space: nowrap; padding-left: 10px; }
+.footer-note { padding: 1rem; font-size: 12px; color: #7a6a4a; text-align: center; border-top: 1px solid #3a2e1a; margin-top: 1rem; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <h1>Rune Tracker — Diablo II Resurrected</h1>
+    <p>Track your owned runes and progress toward any target rune</p>
+  </div>
+  <div class="controls">
+    <label>Goal rune:</label>
+    <select class="goal-select" id="goalSelect"></select>
+    <div class="progress-bar-wrap">
+      <div class="progress-label"><span>Completion</span><span id="pctLabel">0.00000%</span></div>
+      <div class="progress-track"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+    </div>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr>
+        <th>Rune</th>
+        <th>Owned</th>
+        <th>% Have</th>
+        <th>Still need</th>
+        <th>Recipe (Horadric Cube)</th>
+      </tr></thead>
+      <tbody id="runeBody"></tbody>
+    </table>
+  </div>
+  <div class="footer-note">
+    El–Thul (3:1, no gem) &nbsp;|&nbsp; Amn–Pul (3:1 + gem) &nbsp;|&nbsp; Um–Ohm (2:1 + gem) &nbsp;|&nbsp; Lo–Zod (2:1 + gem)
+  </div>
+</div>
+
+<script>
+const RUNES = [
+  "El","Eld","Tir","Nef","Eth","Ith","Tal","Ral","Ort","Thul",
+  "Amn","Sol","Shael","Dol","Hel","Io","Lum","Ko","Fal","Lem","Pul",
+  "Um","Mal","Ist","Gul","Vex","Ohm",
+  "Lo","Sur","Ber","Jah","Cham","Zod"
+];
+
+function bandOf(idx) {
+  if (idx <= 9)  return 0;
+  if (idx <= 20) return 1;
+  if (idx <= 26) return 2;
+  return 3;
+}
+
+function ratio(fromIdx) { return fromIdx < 20 ? 3 : 2; }
+
+const GEM_CORRECT = [
+  null,null,null,null,null,null,null,null,null,null,
+  "Chipped Topaz","Chipped Amethyst","Chipped Sapphire","Chipped Ruby","Chipped Emerald",
+  "Chipped Diamond","Flawed Topaz","Flawed Amethyst","Flawed Sapphire","Flawed Ruby",
+  "Flawed Emerald","Flawed Diamond",
+  "Topaz","Amethyst","Sapphire","Ruby","Emerald",
+  "Diamond",
+  "Flawless Topaz","Flawless Amethyst","Flawless Sapphire","Flawless Ruby","Flawless Emerald"
+];
+
+function recipe(i) {
+  if (i === 0) return "—";
+  const prev = RUNES[i - 1];
+  const r = ratio(i - 1);
+  const gem = GEM_CORRECT[i];
+  if (gem) return `${r} ${prev} + ${gem}`;
+  return `${r} ${prev}`;
+}
+
+function elEquivNeeded(goalIdx) {
+  const needed = new Array(goalIdx + 1).fill(0);
+  needed[goalIdx] = 1;
+  for (let i = goalIdx; i > 0; i--) {
+    needed[i - 1] = needed[i] * ratio(i - 1);
+  }
+  return needed;
+}
+
+const owned = {};
+RUNES.forEach(r => owned[r] = 0);
+
+// Persist inventory in localStorage
+function saveOwned() {
+  localStorage.setItem('d2r_owned', JSON.stringify(owned));
+}
+function loadOwned() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('d2r_owned') || '{}');
+    Object.keys(saved).forEach(r => { if (owned.hasOwnProperty(r)) owned[r] = saved[r]; });
+  } catch(e) {}
+}
+
+function getGoalIdx() { return RUNES.indexOf(document.getElementById('goalSelect').value); }
+
+function update() {
+  const goalIdx = getGoalIdx();
+  const needed = elEquivNeeded(goalIdx);
+
+  let totalFraction = 0;
+  for (let i = 0; i <= goalIdx; i++) {
+    totalFraction += owned[RUNES[i]] / needed[i];
+  }
+  const pct = Math.min(100, totalFraction * 100);
+  document.getElementById('pctLabel').textContent = pct.toFixed(5) + '%';
+  document.getElementById('progressFill').style.width = pct.toFixed(4) + '%';
+
+  const body = document.getElementById('runeBody');
+  body.innerHTML = '';
+
+  for (let i = goalIdx; i >= 0; i--) {
+    const r = RUNES[i];
+    const n = needed[i];
+    const have = owned[r];
+    const fraction = have / n;
+    const ph = Math.min(100, fraction * 100);
+    const stillNeed = Math.max(0, n - have);
+    const band = bandOf(i);
+
+    let needDisplay;
+    if (have >= n) {
+      needDisplay = `<span class="checkmark">&#10003;</span>`;
+    } else {
+      needDisplay = `<span class="needed-pos">${Number.isInteger(stillNeed) ? stillNeed : stillNeed.toFixed(2)}</span>`;
+    }
+
+    const tr = document.createElement('tr');
+    tr.className = `band-${band}`;
+    tr.innerHTML = `
+      <td class="rune-name name-band-${band}">${r}</td>
+      <td>
+        <div class="owned-wrap">
+          <input class="owned-input" type="number" min="0" value="${have}" data-rune="${r}">
+          <button class="clear-btn" data-rune="${r}" title="Clear">&#x2715;</button>
+        </div>
+      </td>
+      <td class="pct-cell">${ph.toFixed(4)}%</td>
+      <td class="needed-cell">${needDisplay}</td>
+      <td class="formula-cell">${recipe(i)}</td>
+    `;
+    body.appendChild(tr);
+  }
+
+  body.querySelectorAll('.owned-input').forEach(inp => {
+    inp.addEventListener('change', e => {
+      owned[e.target.dataset.rune] = Math.max(0, parseInt(e.target.value) || 0);
+      saveOwned();
+      update();
+    });
+  });
+
+  body.querySelectorAll('.clear-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      owned[e.target.dataset.rune] = 0;
+      saveOwned();
+      update();
+    });
+  });
+}
+
+const sel = document.getElementById('goalSelect');
+RUNES.slice().reverse().forEach(r => {
+  const opt = document.createElement('option');
+  opt.value = r; opt.textContent = r;
+  if (r === 'Ist') opt.selected = true;
+  sel.appendChild(opt);
+});
+
+loadOwned();
+sel.addEventListener('change', update);
+update();
+</script>
+</body>
+</html>
