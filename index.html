@@ -18,9 +18,10 @@ body { font-family: 'Crimson Text', Georgia, serif; color: #c8a951; background: 
 .goal-select:focus { outline: none; border-color: #8a6f2e; }
 .progress-bar-wrap { flex: 1; min-width: 160px; }
 .progress-label { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px; color: #7a6a4a; }
-.progress-label span:last-child { color: #c8a951; font-weight: 500; }
+.progress-label span:last-child { font-weight: 500; }
 .progress-track { height: 8px; background: #161410; border: 1px solid #3a2e1a; border-radius: 2px; overflow: hidden; }
-.progress-fill { height: 100%; background: #8a6f2e; transition: width 0.3s ease; }
+.progress-fill { height: 100%; background: #8a6f2e; transition: width 0.3s ease, background 0.3s ease; }
+.progress-fill.complete { background: #3a7a3a; }
 .table-wrap { padding: 0 1rem; overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; font-size: 14px; }
 thead tr { border-bottom: 1px solid #3a2e1a; }
@@ -133,41 +134,52 @@ function saveState() {
   localStorage.setItem('d2r_owned', JSON.stringify(owned));
   localStorage.setItem('d2r_goal', document.getElementById('goalSelect').value);
 }
-
 function loadState() {
   try {
-    const savedOwned = JSON.parse(localStorage.getItem('d2r_owned') || '{}');
-    Object.keys(savedOwned).forEach(r => { if (r in owned) owned[r] = savedOwned[r]; });
+    const s = JSON.parse(localStorage.getItem('d2r_owned') || '{}');
+    Object.keys(s).forEach(r => { if (r in owned) owned[r] = s[r]; });
   } catch(e) {}
 }
-
-function getSavedGoal() {
-  return localStorage.getItem('d2r_goal') || 'Ist';
-}
-
+function getSavedGoal() { return localStorage.getItem('d2r_goal') || 'Ist'; }
 function getGoalIdx() { return RUNES.indexOf(document.getElementById('goalSelect').value); }
 
 function update() {
   const goalIdx = getGoalIdx();
   const needed = elEquivNeeded(goalIdx);
-  let totalFraction = 0;
-  for (let i = 0; i < goalIdx; i++) totalFraction += owned[RUNES[i]] / needed[i];
-  const pct = Math.min(100, totalFraction * 100);
-  document.getElementById('pctLabel').textContent = pct.toFixed(5) + '%';
-  document.getElementById('progressFill').style.width = pct.toFixed(4) + '%';
+
+  let totalOwned = 0;
+  for (let i = 0; i < goalIdx; i++) {
+    totalOwned += owned[RUNES[i]] / needed[i];
+  }
+
+  const pct = totalOwned * 100;
+  const isComplete = totalOwned >= 1;
+
+  const pctLabel = document.getElementById('pctLabel');
+  pctLabel.textContent = pct.toFixed(5) + '%';
+  pctLabel.style.color = isComplete ? '#6aaa6a' : '#c8a951';
+
+  const fill = document.getElementById('progressFill');
+  fill.style.width = Math.min(100, pct).toFixed(4) + '%';
+  fill.className = 'progress-fill' + (isComplete ? ' complete' : '');
+
+  const remainingGoalUnits = Math.max(0, 1 - totalOwned);
 
   const body = document.getElementById('runeBody');
   body.innerHTML = '';
+
   for (let i = goalIdx - 1; i >= 0; i--) {
     const r = RUNES[i];
     const n = needed[i];
     const have = owned[r];
     const ph = Math.min(100, (have / n) * 100);
-    const stillNeed = Math.max(0, n - have);
+    const stillNeed = Math.ceil(remainingGoalUnits * n);
     const band = bandOf(i);
-    const needDisplay = have >= n
+
+    const needDisplay = isComplete || stillNeed <= 0
       ? `<span class="checkmark">&#10003;</span>`
-      : `<span class="needed-pos">${Number.isInteger(stillNeed) ? stillNeed : stillNeed.toFixed(2)}</span>`;
+      : `<span class="needed-pos">${stillNeed}</span>`;
+
     const tr = document.createElement('tr');
     tr.className = `band-${band}`;
     tr.innerHTML = `
@@ -186,20 +198,17 @@ function update() {
   body.querySelectorAll('.owned-input').forEach(inp => {
     inp.addEventListener('change', e => {
       owned[e.target.dataset.rune] = Math.max(0, parseInt(e.target.value) || 0);
-      saveState();
-      update();
+      saveState(); update();
     });
   });
   body.querySelectorAll('.clear-btn').forEach(btn => {
     btn.addEventListener('click', e => {
       owned[e.target.dataset.rune] = 0;
-      saveState();
-      update();
+      saveState(); update();
     });
   });
 }
 
-// Build dropdown
 const sel = document.getElementById('goalSelect');
 RUNES.slice().reverse().forEach(r => {
   if (r === 'El') return;
@@ -208,18 +217,13 @@ RUNES.slice().reverse().forEach(r => {
   sel.appendChild(opt);
 });
 
-// Restore saved state before first render
 loadState();
 const savedGoal = getSavedGoal();
-if ([...sel.options].some(o => o.value === savedGoal)) {
-  sel.value = savedGoal;
-} else {
-  sel.value = 'Ist';
-}
+if ([...sel.options].some(o => o.value === savedGoal)) sel.value = savedGoal;
+else sel.value = 'Ist';
 
 sel.addEventListener('change', () => { saveState(); update(); });
 update();
 </script>
 </body>
 </html>
-
