@@ -30,14 +30,10 @@ thead th:nth-child(5) { text-align: left; }
 tbody tr { border-bottom: 1px solid #1e1a10; transition: background 0.1s; }
 td { padding: 4px 8px; vertical-align: middle; }
 .rune-name { font-family: 'Cinzel', Georgia, serif; font-size: 14px; }
-.band-0 { background: #130f07; }
-.band-0:hover { background: #1c1608; }
-.band-1 { background: #0b100e; }
-.band-1:hover { background: #111a16; }
-.band-2 { background: #100b12; }
-.band-2:hover { background: #1a1220; }
-.band-3 { background: #110808; }
-.band-3:hover { background: #1e0e0e; }
+.band-0 { background: #130f07; } .band-0:hover { background: #1c1608; }
+.band-1 { background: #0b100e; } .band-1:hover { background: #111a16; }
+.band-2 { background: #100b12; } .band-2:hover { background: #1a1220; }
+.band-3 { background: #110808; } .band-3:hover { background: #1e0e0e; }
 .name-band-0 { color: #c8c8a0; }
 .name-band-1 { color: #e8a020; }
 .name-band-2 { color: #cc78e0; }
@@ -49,10 +45,14 @@ td { padding: 4px 8px; vertical-align: middle; }
 .clear-btn:hover { color: #c8a951; border-color: #8a6f2e; }
 .pct-cell { text-align: center; font-size: 12px; color: #7a6a4a; font-variant-numeric: tabular-nums; }
 .needed-cell { text-align: center; font-size: 13px; font-variant-numeric: tabular-nums; }
-.needed-pos { color: #e07040; }
+.needed-pos { color: #4a9edd; }
 .checkmark { color: #6aaa6a; font-size: 15px; }
 .formula-cell { font-size: 12px; color: #7a6a4a; white-space: nowrap; padding-left: 10px; }
 .footer-note { padding: 1rem; font-size: 12px; color: #7a6a4a; text-align: center; border-top: 1px solid #3a2e1a; margin-top: 1rem; }
+.footer-note .fc0 { color: #c8c8a0; }
+.footer-note .fc1 { color: #e8a020; }
+.footer-note .fc2 { color: #cc78e0; }
+.footer-note .fc3 { color: #ff6b35; }
 </style>
 </head>
 <body>
@@ -72,17 +72,16 @@ td { padding: 4px 8px; vertical-align: middle; }
   <div class="table-wrap">
     <table>
       <thead><tr>
-        <th>Rune</th>
-        <th>Owned</th>
-        <th>% Have</th>
-        <th>Still need</th>
-        <th>Recipe (Horadric Cube)</th>
+        <th>Rune</th><th>Owned</th><th>% Have</th><th>Still need</th><th>Recipe (Horadric Cube)</th>
       </tr></thead>
       <tbody id="runeBody"></tbody>
     </table>
   </div>
   <div class="footer-note">
-    El–Thul (3:1, no gem) &nbsp;|&nbsp; Amn–Pul (3:1 + gem) &nbsp;|&nbsp; Um–Ohm (2:1 + gem) &nbsp;|&nbsp; Lo–Zod (2:1 + gem)
+    <span class="fc0">El–Thul (3:1, no gem)</span> &nbsp;|&nbsp;
+    <span class="fc1">Amn–Pul (3:1 + gem)</span> &nbsp;|&nbsp;
+    <span class="fc2">Um–Ohm (2:1 + gem)</span> &nbsp;|&nbsp;
+    <span class="fc3">Lo–Zod (2:1 + gem)</span>
   </div>
 </div>
 
@@ -100,7 +99,6 @@ function bandOf(idx) {
   if (idx <= 26) return 2;
   return 3;
 }
-
 function ratio(fromIdx) { return fromIdx < 20 ? 3 : 2; }
 
 const GEM_CORRECT = [
@@ -118,31 +116,33 @@ function recipe(i) {
   const prev = RUNES[i - 1];
   const r = ratio(i - 1);
   const gem = GEM_CORRECT[i];
-  if (gem) return `${r} ${prev} + ${gem}`;
-  return `${r} ${prev}`;
+  return gem ? `${r} ${prev} + ${gem}` : `${r} ${prev}`;
 }
 
 function elEquivNeeded(goalIdx) {
   const needed = new Array(goalIdx + 1).fill(0);
   needed[goalIdx] = 1;
-  for (let i = goalIdx; i > 0; i--) {
-    needed[i - 1] = needed[i] * ratio(i - 1);
-  }
+  for (let i = goalIdx; i > 0; i--) needed[i - 1] = needed[i] * ratio(i - 1);
   return needed;
 }
 
 const owned = {};
 RUNES.forEach(r => owned[r] = 0);
 
-// Persist inventory in localStorage
-function saveOwned() {
+function saveState() {
   localStorage.setItem('d2r_owned', JSON.stringify(owned));
+  localStorage.setItem('d2r_goal', document.getElementById('goalSelect').value);
 }
-function loadOwned() {
+
+function loadState() {
   try {
-    const saved = JSON.parse(localStorage.getItem('d2r_owned') || '{}');
-    Object.keys(saved).forEach(r => { if (owned.hasOwnProperty(r)) owned[r] = saved[r]; });
+    const savedOwned = JSON.parse(localStorage.getItem('d2r_owned') || '{}');
+    Object.keys(savedOwned).forEach(r => { if (r in owned) owned[r] = savedOwned[r]; });
   } catch(e) {}
+}
+
+function getSavedGoal() {
+  return localStorage.getItem('d2r_goal') || 'Ist';
 }
 
 function getGoalIdx() { return RUNES.indexOf(document.getElementById('goalSelect').value); }
@@ -150,47 +150,35 @@ function getGoalIdx() { return RUNES.indexOf(document.getElementById('goalSelect
 function update() {
   const goalIdx = getGoalIdx();
   const needed = elEquivNeeded(goalIdx);
-
   let totalFraction = 0;
-  for (let i = 0; i <= goalIdx; i++) {
-    totalFraction += owned[RUNES[i]] / needed[i];
-  }
+  for (let i = 0; i < goalIdx; i++) totalFraction += owned[RUNES[i]] / needed[i];
   const pct = Math.min(100, totalFraction * 100);
   document.getElementById('pctLabel').textContent = pct.toFixed(5) + '%';
   document.getElementById('progressFill').style.width = pct.toFixed(4) + '%';
 
   const body = document.getElementById('runeBody');
   body.innerHTML = '';
-
-  for (let i = goalIdx; i >= 0; i--) {
+  for (let i = goalIdx - 1; i >= 0; i--) {
     const r = RUNES[i];
     const n = needed[i];
     const have = owned[r];
-    const fraction = have / n;
-    const ph = Math.min(100, fraction * 100);
+    const ph = Math.min(100, (have / n) * 100);
     const stillNeed = Math.max(0, n - have);
     const band = bandOf(i);
-
-    let needDisplay;
-    if (have >= n) {
-      needDisplay = `<span class="checkmark">&#10003;</span>`;
-    } else {
-      needDisplay = `<span class="needed-pos">${Number.isInteger(stillNeed) ? stillNeed : stillNeed.toFixed(2)}</span>`;
-    }
-
+    const needDisplay = have >= n
+      ? `<span class="checkmark">&#10003;</span>`
+      : `<span class="needed-pos">${Number.isInteger(stillNeed) ? stillNeed : stillNeed.toFixed(2)}</span>`;
     const tr = document.createElement('tr');
     tr.className = `band-${band}`;
     tr.innerHTML = `
       <td class="rune-name name-band-${band}">${r}</td>
-      <td>
-        <div class="owned-wrap">
-          <input class="owned-input" type="number" min="0" value="${have}" data-rune="${r}">
-          <button class="clear-btn" data-rune="${r}" title="Clear">&#x2715;</button>
-        </div>
-      </td>
+      <td><div class="owned-wrap">
+        <input class="owned-input" type="number" min="0" value="${have}" data-rune="${r}">
+        <button class="clear-btn" data-rune="${r}" title="Clear">&#x2715;</button>
+      </div></td>
       <td class="pct-cell">${ph.toFixed(4)}%</td>
       <td class="needed-cell">${needDisplay}</td>
-      <td class="formula-cell">${recipe(i)}</td>
+      <td class="formula-cell">${recipe(i + 1)}</td>
     `;
     body.appendChild(tr);
   }
@@ -198,31 +186,40 @@ function update() {
   body.querySelectorAll('.owned-input').forEach(inp => {
     inp.addEventListener('change', e => {
       owned[e.target.dataset.rune] = Math.max(0, parseInt(e.target.value) || 0);
-      saveOwned();
+      saveState();
       update();
     });
   });
-
   body.querySelectorAll('.clear-btn').forEach(btn => {
     btn.addEventListener('click', e => {
       owned[e.target.dataset.rune] = 0;
-      saveOwned();
+      saveState();
       update();
     });
   });
 }
 
+// Build dropdown
 const sel = document.getElementById('goalSelect');
 RUNES.slice().reverse().forEach(r => {
+  if (r === 'El') return;
   const opt = document.createElement('option');
   opt.value = r; opt.textContent = r;
-  if (r === 'Ist') opt.selected = true;
   sel.appendChild(opt);
 });
 
-loadOwned();
-sel.addEventListener('change', update);
+// Restore saved state before first render
+loadState();
+const savedGoal = getSavedGoal();
+if ([...sel.options].some(o => o.value === savedGoal)) {
+  sel.value = savedGoal;
+} else {
+  sel.value = 'Ist';
+}
+
+sel.addEventListener('change', () => { saveState(); update(); });
 update();
 </script>
 </body>
 </html>
+
